@@ -1,0 +1,14 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "thememate",
+  "owner": {
+    "name": "Swym Corp"
+  },
+  "plugins": [
+    {
+      "name": "swym",
+      "description": "ThemeMate: a Swym API-aware Claude Code skill for implementing and debugging Swym features on Shopify (full workflow) and other platforms (knowledge-only).",
+      "source": "./"
+    }
+  ]
+}
