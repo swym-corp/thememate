@@ -9,7 +9,7 @@ description: >
   suggestions only -- no theme pull, edit, or push. Use when asked to
   implement, debug, or explain a Swym feature on any storefront.
 metadata:
-  version: 0.1.5
+  version: 1.0.0
 hooks:
   # Three triggers share hooks/telemetry-hook.py, all scoped to sessions that actually use
   # ThemeMate (unlike a plugin-level SessionStart/Stop hook, which would fire for every Claude

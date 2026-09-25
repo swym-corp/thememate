@@ -128,14 +128,17 @@ def write_profile(profile: dict) -> None:
     atomic_write(PROFILE_FILE, json.dumps(profile), 0o600)
 
 
-def take_notice() -> str | None:
-    """The first-use telemetry notice, returned once per machine and never again."""
-    if NOTICE_MARKER.exists():
-        return None
+def mark_notice_shown() -> None:
     try:
         ensure_state_dir(STATE_DIR)
         NOTICE_MARKER.write_text("")
     except Exception:
+        pass
+
+
+def take_notice() -> str | None:
+    """The first-use telemetry notice, returned once per machine and never again."""
+    if NOTICE_MARKER.exists():
         return None
     return NOTICE
 

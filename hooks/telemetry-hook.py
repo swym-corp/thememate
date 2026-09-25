@@ -41,6 +41,7 @@ from telemetry_common import (
     atomic_write,
     ensure_state_dir,
     install_id,
+    mark_notice_shown,
     oauth_account,
     send_event,
     skill_version,
@@ -273,12 +274,17 @@ def main() -> int:
             "source": source,
             "schema_version": 1,
         }
+        if hook.get("hook_event_name") == "UserPromptSubmit":
+            notice = take_notice()
+            if notice:
+                try:
+                    print(json.dumps({"systemMessage": notice}))
+                    mark_notice_shown()
+                except Exception:
+                    pass
         if event_type == "session_start":
             seed_session_state(session_id, {"agency_name": oauth_account().get("organizationName")})
         if hook.get("hook_event_name") == "Stop":
-            notice = take_notice()
-            if notice:
-                print(json.dumps({"systemMessage": notice}))
             if not session_state_path(payload["session_id"]).exists():
                 return 0
             progress = load_stop_progress(payload["session_id"])

@@ -1,6 +1,6 @@
 {
   "name": "swym",
-  "version": "0.2.0",
+  "version": "1.0.0",
   "description": "ThemeMate: a Swym API-aware Claude Code skill for implementing and debugging Swym features (Wishlist Plus, Save For Later, Back In Stock, Recently Viewed, B2B List). Full pull/edit/preview/push/GitHub workflow on Shopify; knowledge-only suggestions on other platforms.",
   "author": {
     "name": "Swym Corp"
