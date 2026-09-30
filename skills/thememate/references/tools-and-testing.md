@@ -37,20 +37,27 @@ It succeeds only when a real Chrome debugging endpoint answers within 2 seconds.
 1. If you launched this Chrome earlier in this session and are still on the
    same store, use it and stop here.
 2. Otherwise close ThemeMate's own Chrome if one is running (a leftover from an
-   earlier session, or the one for the previous store). Both commands match
-   only its profile folder, so the user's own Chrome is never touched:
+   earlier session, or the one for the previous store). Close only processes
+   that are Chrome itself and were started with exactly
+   `--user-data-dir=<home>/.claude/thememate-chrome-profile`, never a
+   name-only match such as `pkill -f`, which would also hit the shell running
+   the command and anything else that mentions the folder. `<home>` is the
+   user's home directory (`$HOME`, or `%USERPROFILE%` on Windows). These
+   commands list those processes:
 
    ```
-   # macOS, Linux
-   pkill -f thememate-chrome-profile
-   # Windows (PowerShell)
-   Get-CimInstance Win32_Process -Filter "Name = 'chrome.exe'" | Where-Object CommandLine -like '*thememate-chrome-profile*' | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+   # macOS, Linux: PIDs of ThemeMate's Chrome
+   ps -Ao pid=,command= | awk -v p="--user-data-dir=$HOME/.claude/thememate-chrome-profile" '/^ *[0-9]+ (\/Applications\/Google Chrome\.app\/|[^ ]*\/(google-chrome|chrome|chromium)[^ \/]*( |$))/ { for (i = 2; i <= NF; i++) if ($i == p) { print $1; break } }'
+   # Windows (PowerShell): ThemeMate's Chrome processes
+   $p = "--user-data-dir=$env:USERPROFILE\.claude\thememate-chrome-profile"
+   Get-CimInstance Win32_Process -Filter "Name = 'chrome.exe'" | Where-Object { $_.CommandLine -match ([regex]::Escape($p) + '("|\s|$)') }
    ```
 
-   Wait until the endpoint check fails (up to 5 seconds), then delete the
-   profile folder `<home>/.claude/thememate-chrome-profile` (`rm -rf` on
-   macOS/Linux, `Remove-Item -Recurse -Force` on Windows). `<home>` is the
-   user's home directory (`$HOME`, or `%USERPROFILE%` on Windows).
+   Stop them (`kill <pids>` on macOS/Linux; pipe the Windows list to
+   `ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`). Then run the
+   list again until it comes back empty (up to 10 seconds): Chrome keeps
+   writing to its profile while it shuts down. Only then delete the profile
+   folder (`rm -rf` on macOS/Linux, `Remove-Item -Recurse -Force` on Windows).
 3. Run the endpoint check. If it still succeeds, the browser on 9222 is one the
    user started themselves: use it as is and stop here.
 4. Find Chrome for the OS you are on:
