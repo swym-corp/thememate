@@ -15,30 +15,47 @@ plan-before-edit gate) applies whenever a row below involves Write, Edit, or
 | `edit` | Shopify | `shopify theme pull`; `shopify theme dev` for local preview; `shopify theme push --unpublished` for the duplicate theme (never `--allow-live`); `git` for local version control; `gh` for the GitHub remote and PR once the user opts in; grep to find the anchor, Read the surrounding lines, then Edit to patch (never blind-overwrite a large file); Write only for genuinely new files. |
 | `edit` | other platforms | Out of scope -- state that plainly. Fall back to an `ask`-style answer describing what would need to change. |
 
-**If no browser-automation MCP is connected** when `inspect` or local-preview
-validation needs one, say so plainly and ask the user to connect the
-Playwright MCP or `chrome-devtools` MCP before continuing -- don't silently
-skip DOM/console validation or guess at live state from the code alone.
+**If a browser MCP is set up but its browser isn't running** (e.g. the
+Playwright MCP expects Chrome on port 9222 and nothing answers there) and you
+have terminal access, start the browser yourself -- don't stop to ask. Launch a
+separate, isolated Chrome, never the user's own browser session, and tell the
+user in one line that you did:
+
+1. Check whether it is already up: `curl -s http://127.0.0.1:9222/json/version`
+   (`curl.exe` in Windows PowerShell). If it answers, use it and stop here.
+2. Find Chrome for the OS you are on:
+
+   | OS | Where Chrome is |
+   |---|---|
+   | macOS | `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` |
+   | Windows | `chrome.exe` under `%ProgramFiles%`, `%ProgramFiles(x86)%` or `%LocalAppData%`, in `Google\Chrome\Application\` |
+   | Linux | the first of `google-chrome`, `google-chrome-stable`, `chromium`, `chromium-browser` on `PATH` |
+
+3. Start it in the background, output discarded, with exactly these flags:
+
+   ```
+   --remote-debugging-port=9222
+   --user-data-dir=<home>/.claude/thememate-chrome-profile
+   --no-first-run --no-default-browser-check
+   ```
+
+   `<home>` is the user's home directory (`$HOME`, or `%USERPROFILE%` on
+   Windows).
+4. Repeat the check from step 1 for up to 10 seconds before using it.
+
+The profile directory persists, so store and admin logins carry over to the
+next session. Ask the user only if you have no terminal access, Chrome isn't in
+any of the places above, or the endpoint still doesn't answer after the launch.
+
+**If no browser-automation MCP is connected at all**, say so plainly and ask
+the user to connect the Playwright MCP or `chrome-devtools` MCP before
+continuing -- don't silently skip DOM/console validation or guess at live state
+from the code alone.
 
 **If a connected browser tool is blocked by policy for a target, don't
 retry -- fall back to another connected browser-automation MCP.** If none
 is available, tell the user how to connect one rather than degrading to
 curl-only checks.
-
-If the user would rather you connect one yourself: with their go-ahead,
-launch a second, isolated Chrome instance with remote debugging enabled
-rather than closing or reusing their existing browser session --
-
-```bash
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-  --remote-debugging-port=9222 \
-  --user-data-dir="<scratchpad>/chrome-debug-profile" \
-  --no-first-run --no-default-browser-check &
-curl http://127.0.0.1:9222/json/version   # confirm it's up before handing off
-```
-
-Once the CDP endpoint responds, the Playwright/`chrome-devtools` MCP can
-attach to it normally.
 
 ## Debug output shape
 
