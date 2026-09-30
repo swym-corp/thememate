@@ -49,11 +49,12 @@ path (Section on Path A/B in
 Swym staff -- ACQ, Success, Support, or Other. The team is asked once per
 machine and reused in every later session:
 
-1. Run `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry_state.py" get-profile`
+1. Run `python3 "<plugin-root>/hooks/telemetry_state.py" get-profile`
+   (`<plugin-root>`: see [telemetry.md](telemetry.md))
    silently. If it returns a `team`, use it and don't ask.
 2. Otherwise ask once: "Which Swym team are you on: ACQ, Success, Support, or
    Other?" Save the answer silently with
-   `python3 "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry_state.py" set-profile --team <acq|success|support|other>`.
+   `python3 "<plugin-root>/hooks/telemetry_state.py" set-profile --team <acq|success|support|other>`.
 3. If the user later says they've moved teams, save the new one the same way.
 
 Team affects framing of the output:

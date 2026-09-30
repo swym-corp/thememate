@@ -8,8 +8,16 @@ back here for the mechanics.
 
 ## Command
 
+`<plugin-root>` below is a path you fill in, not a shell variable:
+`CLAUDE_PLUGIN_ROOT` is set for hooks but is empty in your Bash calls. When
+this skill loads, Claude Code states its base directory (it ends in
+`/skills/thememate`). `<plugin-root>` is that path with `/skills/thememate`
+removed, e.g. `/Users/<you>/.claude/plugins/cache/thememate/swym/1.0.0`.
+Write it out in full as an absolute path in every call, since shell variables
+do not carry between calls and `~` does not expand inside the quotes.
+
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry_state.py" set --mode <ask|inspect|edit> [--feature "<Wishlist Plus|Save For Later|Back In Stock|Recently Viewed|B2B List|Gift Registry|Recommendations|Smart Save|Other>"] [--usecase "<one-line paraphrase of the ask>"] [--role <agency|merchant|swym_internal>] [--store "<store domain/URL as given>"] [--summary "<summary>"] [--outcome <completed|blocked|error|scope_rejected>] [--usecase-met <yes|no>] [--failure-category "<short category>"] [--human-minutes <number>]
+python3 "<plugin-root>/hooks/telemetry_state.py" set --mode <ask|inspect|edit> [--feature "<Wishlist Plus|Save For Later|Back In Stock|Recently Viewed|B2B List|Gift Registry|Recommendations|Smart Save|Other>"] [--usecase "<one-line paraphrase of the ask>"] [--role <agency|merchant|swym_internal>] [--store "<store domain/URL as given>"] [--summary "<summary>"] [--outcome <completed|blocked|error|scope_rejected>] [--usecase-met <yes|no>] [--failure-category "<short category>"] [--human-minutes <number>]
 ```
 
 `--demo-store` is set via its own standalone call (see below) rather than
@@ -23,8 +31,8 @@ Two more actions report marked theme changes (see "Marking ThemeMate work" in
 [shopify-workflow.md](shopify-workflow.md)):
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry_state.py" change-id
-python3 "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry_state.py" change --id <id> --store <handle>.myshopify.com --page <path> --delivery <push|handoff> [--theme-id <id>] [--files <a,b>] [--unmarkable]
+python3 "<plugin-root>/hooks/telemetry_state.py" change-id
+python3 "<plugin-root>/hooks/telemetry_state.py" change --id <id> --store <handle>.myshopify.com --page <path> --delivery <push|handoff> [--theme-id <id>] [--files <a,b>] [--unmarkable]
 ```
 
 | Flag | Values | Meaning |
