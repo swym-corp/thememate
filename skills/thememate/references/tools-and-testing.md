@@ -18,12 +18,42 @@ plan-before-edit gate) applies whenever a row below involves Write, Edit, or
 **If a browser MCP is set up but its browser isn't running** (e.g. the
 Playwright MCP expects Chrome on port 9222 and nothing answers there) and you
 have terminal access, start the browser yourself -- don't stop to ask. Launch a
-separate, isolated Chrome, never the user's own browser session, and tell the
-user in one line that you did:
+separate, isolated Chrome with an empty profile, never the user's own browser
+session, and tell the user in one line that you did.
 
-1. Check whether it is already up: `curl -s http://127.0.0.1:9222/json/version`
-   (`curl.exe` in Windows PowerShell). If it answers, use it and stop here.
-2. Find Chrome for the OS you are on:
+The profile starts empty on every launch, on purpose: every store's local
+preview is served from the same `127.0.0.1:9292` origin, so cookies, local
+storage and Swym's cached lists from one store would otherwise still be there
+when the next store loads, and a check could pass or fail on the previous
+store's state. The endpoint check used below is:
+
+```
+curl -s -m 2 http://127.0.0.1:9222/json/version | grep -q webSocketDebuggerUrl
+```
+
+(in Windows PowerShell: `curl.exe -s -m 2 http://127.0.0.1:9222/json/version | Select-String -Quiet webSocketDebuggerUrl`).
+It succeeds only when a real Chrome debugging endpoint answers within 2 seconds.
+
+1. If you launched this Chrome earlier in this session and are still on the
+   same store, use it and stop here.
+2. Otherwise close ThemeMate's own Chrome if one is running (a leftover from an
+   earlier session, or the one for the previous store). Both commands match
+   only its profile folder, so the user's own Chrome is never touched:
+
+   ```
+   # macOS, Linux
+   pkill -f thememate-chrome-profile
+   # Windows (PowerShell)
+   Get-CimInstance Win32_Process -Filter "Name = 'chrome.exe'" | Where-Object CommandLine -like '*thememate-chrome-profile*' | ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+   ```
+
+   Wait until the endpoint check fails (up to 5 seconds), then delete the
+   profile folder `<home>/.claude/thememate-chrome-profile` (`rm -rf` on
+   macOS/Linux, `Remove-Item -Recurse -Force` on Windows). `<home>` is the
+   user's home directory (`$HOME`, or `%USERPROFILE%` on Windows).
+3. Run the endpoint check. If it still succeeds, the browser on 9222 is one the
+   user started themselves: use it as is and stop here.
+4. Find Chrome for the OS you are on:
 
    | OS | Where Chrome is |
    |---|---|
@@ -31,7 +61,7 @@ user in one line that you did:
    | Windows | `chrome.exe` under `%ProgramFiles%`, `%ProgramFiles(x86)%` or `%LocalAppData%`, in `Google\Chrome\Application\` |
    | Linux | the first of `google-chrome`, `google-chrome-stable`, `chromium`, `chromium-browser` on `PATH` |
 
-3. Start it in the background, output discarded, with exactly these flags:
+5. Start it in the background, output discarded, with exactly these flags:
 
    ```
    --remote-debugging-port=9222
@@ -39,13 +69,12 @@ user in one line that you did:
    --no-first-run --no-default-browser-check
    ```
 
-   `<home>` is the user's home directory (`$HOME`, or `%USERPROFILE%` on
-   Windows).
-4. Repeat the check from step 1 for up to 10 seconds before using it.
+6. Repeat the endpoint check for up to 10 seconds before using it.
 
-The profile directory persists, so store and admin logins carry over to the
-next session. Ask the user only if you have no terminal access, Chrome isn't in
-any of the places above, or the endpoint still doesn't answer after the launch.
+Nothing carries over between launches, so a storefront password or test
+customer login has to be entered again for each store. Ask the user only if you
+have no terminal access, Chrome isn't in any of the places above, or the
+endpoint check still fails after the launch.
 
 **If no browser-automation MCP is connected at all**, say so plainly and ask
 the user to connect the Playwright MCP or `chrome-devtools` MCP before
