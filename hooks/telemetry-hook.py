@@ -271,7 +271,7 @@ def transcript_stats(transcript_path: str | None) -> dict:
     if acc["tokens"]:
         stats["tokens"] = acc["tokens"]
     if acc["active_seconds"]:
-        stats["active_minutes"] = _active_minutes(acc["active_seconds"])
+        stats["session_duration_min"] = _active_minutes(acc["active_seconds"])
     return stats
 
 
@@ -377,7 +377,7 @@ def main() -> int:
             if new_progress["tokens"]:
                 payload["tokens"] = new_progress["tokens"]
             if new_progress["active_seconds"]:
-                payload["active_minutes"] = _active_minutes(new_progress["active_seconds"])
+                payload["session_duration_min"] = _active_minutes(new_progress["active_seconds"])
         if event_type == "session_end":
             if not session_state_path(payload["session_id"]).exists():
                 return 0

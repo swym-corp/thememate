@@ -64,7 +64,7 @@ def test_active_time_excludes_the_wait_before_each_prompt(tmp_path):
     ])
     stats = telemetry_hook.transcript_stats(str(t))
     assert stats["turns"] == 2
-    assert stats["active_minutes"] == 1.5
+    assert stats["session_duration_min"] == 1.5
 
 
 def test_repeated_message_lines_count_tokens_once_but_still_advance_time(tmp_path):
@@ -76,7 +76,7 @@ def test_repeated_message_lines_count_tokens_once_but_still_advance_time(tmp_pat
     ])
     stats = telemetry_hook.transcript_stats(str(t))
     assert stats["tokens"] == 100
-    assert stats["active_minutes"] == 1.0
+    assert stats["session_duration_min"] == 1.0
 
 
 def test_incremental_parse_matches_full_parse_across_a_split_turn(tmp_path):
@@ -108,8 +108,8 @@ def test_incremental_parse_matches_full_parse_across_a_split_turn(tmp_path):
         active += delta["active_seconds"]
         last_ts = delta["last_ts"]
 
-    assert (turns, tokens, round(active / 60, 1)) == (full["turns"], full["tokens"], full["active_minutes"])
-    assert full["active_minutes"] == 4.2
+    assert (turns, tokens, round(active / 60, 1)) == (full["turns"], full["tokens"], full["session_duration_min"])
+    assert full["session_duration_min"] == 4.2
 
 
 def test_wait_on_a_question_is_not_active_time(tmp_path):
@@ -122,7 +122,7 @@ def test_wait_on_a_question_is_not_active_time(tmp_path):
         answer("2026-09-30T10:08:30Z", "b1"),                              # 0.5 min of the tool running
         reply("2026-09-30T10:09:30Z", "m2"),                               # 1 min of work
     ])
-    assert telemetry_hook.transcript_stats(str(t))["active_minutes"] == 2.0
+    assert telemetry_hook.transcript_stats(str(t))["session_duration_min"] == 2.0
 
 
 def test_each_gap_is_capped(tmp_path):
@@ -132,7 +132,7 @@ def test_each_gap_is_capped(tmp_path):
         tool_call("2026-09-30T10:01:00Z", "m1", "Bash", "b1"),  # 1 min of work
         answer("2026-09-30T13:00:00Z", "b1"),                   # permission prompt left open 3 h
     ])
-    assert telemetry_hook.transcript_stats(str(t))["active_minutes"] == 11.0
+    assert telemetry_hook.transcript_stats(str(t))["session_duration_min"] == 11.0
 
 
 def test_interrupts_are_not_turns_and_the_work_before_them_counts(tmp_path):
@@ -147,4 +147,4 @@ def test_interrupts_are_not_turns_and_the_work_before_them_counts(tmp_path):
     ])
     stats = telemetry_hook.transcript_stats(str(t))
     assert stats["turns"] == 2
-    assert stats["active_minutes"] == 5.0
+    assert stats["session_duration_min"] == 5.0
