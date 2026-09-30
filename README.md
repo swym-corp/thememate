@@ -158,7 +158,8 @@ carries:
   can include whatever details you gave
 - the merchant store and any demo store the session works on, for any
   session that names one
-- turn and token counts for the session (token counts leave out cache reads)
+- turn and token counts for the session (token counts leave out cache reads),
+  plus estimated active minutes derived from transcript timestamps
 - for each theme change ThemeMate pushes or hands over: the store, one page it
   renders on, the files it touched and its change id, plus the pushed theme id
   for pushed changes

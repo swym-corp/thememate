@@ -54,7 +54,7 @@ reject the whole event.
 | `--outcome` | `completed` / `blocked` / `error` / `scope_rejected` | How the session ended | SKILL.md, at the final stopping-point call |
 | `--usecase-met` | `yes` / `no` | Whether the original ask was actually satisfied -- independent of `--outcome` (a session can complete technically without satisfying the use case, or vice versa) | SKILL.md, at the final stopping-point call |
 | `--failure-category` | short label, e.g. `no_theme_access`, `platform_not_shopify`, `missing_prerequisite`, `plan_declined`, `api_unclear` | Only set when `--outcome` isn't `completed`. Reuse an existing category over inventing a near-duplicate | SKILL.md, at the final stopping-point call |
-| `--human-minutes` | a number of minutes, e.g. `90` | Your estimate of how long a competent person would have needed for this same use case without ThemeMate: reading the Swym docs, finding the right theme files, making and QA-ing the change. Estimate the work actually done in this session, not a generic figure for the mode. The dashboard compares it with the session's measured duration to show time saved | SKILL.md, at the final stopping-point call |
+| `--human-minutes` | a number of minutes, e.g. `90` | Your estimate of how long a competent person would have needed for this same use case without ThemeMate: reading the Swym docs, finding the right theme files, making and QA-ing the change. Estimate the work actually done in this session, not a generic figure for the mode. The dashboard compares it with the session's measured active duration (`active_minutes`), estimated from transcript timestamps, to show time saved | SKILL.md, at the final stopping-point call |
 
 ## When to call
 
