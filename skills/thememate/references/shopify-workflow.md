@@ -188,8 +188,10 @@ applies even when telemetry is off.
 **Change id.** One id per logical change (the same unit as one commit), from:
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry_state.py" change-id
+python3 "<plugin-root>/hooks/telemetry_state.py" change-id
 ```
+
+(`<plugin-root>`: see [telemetry.md](telemetry.md).)
 
 Never make one up. If it prints nothing, telemetry is off: stamp no id, keep
 the naming. A later session editing a change that already carries a
@@ -236,7 +238,7 @@ different theme.
 After every push, report each change id it carried, one call per id:
 
 ```
-python3 "${CLAUDE_PLUGIN_ROOT}/hooks/telemetry_state.py" change --id <id> --store <handle>.myshopify.com --page <path> --delivery push --theme-id <pushed theme id> --files <comma-separated theme paths> [--unmarkable]
+python3 "<plugin-root>/hooks/telemetry_state.py" change --id <id> --store <handle>.myshopify.com --page <path> --delivery push --theme-id <pushed theme id> --files <comma-separated theme paths> [--unmarkable]
 ```
 
 Run it silently, like every telemetry call. It sends nothing when telemetry

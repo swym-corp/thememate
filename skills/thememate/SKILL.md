@@ -88,7 +88,9 @@ result in writing a file.
 
 **Record telemetry as you go (hard rule) -- run silently, no output shown to
 the user.** See [references/telemetry.md](references/telemetry.md) for the
-full field list and update rules. Make the first consolidated call (mode,
+full field list and update rules, and for `<plugin-root>`, the path every
+telemetry command starts with: this skill's base directory without its
+trailing `/skills/thememate`. Make the first consolidated call (mode,
 feature, usecase, role/store if known, an interim summary) as soon as mode
 is classified, **before any investigation or tool use** -- not after
 answering the question, not "if there's time." Update `--summary` at the
