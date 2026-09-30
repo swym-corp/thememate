@@ -15,30 +15,83 @@ plan-before-edit gate) applies whenever a row below involves Write, Edit, or
 | `edit` | Shopify | `shopify theme pull`; `shopify theme dev` for local preview; `shopify theme push --unpublished` for the duplicate theme (never `--allow-live`); `git` for local version control; `gh` for the GitHub remote and PR once the user opts in; grep to find the anchor, Read the surrounding lines, then Edit to patch (never blind-overwrite a large file); Write only for genuinely new files. |
 | `edit` | other platforms | Out of scope -- state that plainly. Fall back to an `ask`-style answer describing what would need to change. |
 
-**If no browser-automation MCP is connected** when `inspect` or local-preview
-validation needs one, say so plainly and ask the user to connect the
-Playwright MCP or `chrome-devtools` MCP before continuing -- don't silently
-skip DOM/console validation or guess at live state from the code alone.
+**If a browser MCP is set up but its browser isn't running** (e.g. the
+Playwright MCP expects Chrome on port 9222 and nothing answers there) and you
+have terminal access, start the browser yourself -- don't stop to ask. Launch a
+separate, isolated Chrome with an empty profile, never the user's own browser
+session, and tell the user in one line that you did.
+
+The profile starts empty on every launch, on purpose: every store's local
+preview is served from the same `127.0.0.1:9292` origin, so cookies, local
+storage and Swym's cached lists from one store would otherwise still be there
+when the next store loads, and a check could pass or fail on the previous
+store's state. The endpoint check used below is:
+
+```
+curl -s -m 2 http://127.0.0.1:9222/json/version | grep -q webSocketDebuggerUrl
+```
+
+(in Windows PowerShell: `curl.exe -s -m 2 http://127.0.0.1:9222/json/version | Select-String -Quiet webSocketDebuggerUrl`).
+It succeeds only when a real Chrome debugging endpoint answers within 2 seconds.
+
+1. If you launched this Chrome earlier in this session and are still on the
+   same store, use it and stop here.
+2. Otherwise close ThemeMate's own Chrome if one is running (a leftover from an
+   earlier session, or the one for the previous store). Close only processes
+   that are Chrome itself and were started with exactly
+   `--user-data-dir=<home>/.claude/thememate-chrome-profile`, never a
+   name-only match such as `pkill -f`, which would also hit the shell running
+   the command and anything else that mentions the folder. `<home>` is the
+   user's home directory (`$HOME`, or `%USERPROFILE%` on Windows). These
+   commands list those processes:
+
+   ```
+   # macOS, Linux: PIDs of ThemeMate's Chrome
+   ps -Ao pid=,command= | awk -v p="--user-data-dir=$HOME/.claude/thememate-chrome-profile" '/^ *[0-9]+ (\/Applications\/Google Chrome\.app\/|[^ ]*\/(google-chrome|chrome|chromium)[^ \/]*( |$))/ { for (i = 2; i <= NF; i++) if ($i == p) { print $1; break } }'
+   # Windows (PowerShell): ThemeMate's Chrome processes
+   $p = "--user-data-dir=$env:USERPROFILE\.claude\thememate-chrome-profile"
+   Get-CimInstance Win32_Process -Filter "Name = 'chrome.exe'" | Where-Object { $_.CommandLine -match ([regex]::Escape($p) + '("|\s|$)') }
+   ```
+
+   Stop them (`kill <pids>` on macOS/Linux; pipe the Windows list to
+   `ForEach-Object { Stop-Process -Id $_.ProcessId -Force }`). Then run the
+   list again until it comes back empty (up to 10 seconds): Chrome keeps
+   writing to its profile while it shuts down. Only then delete the profile
+   folder (`rm -rf` on macOS/Linux, `Remove-Item -Recurse -Force` on Windows).
+3. Run the endpoint check. If it still succeeds, the browser on 9222 is one the
+   user started themselves: use it as is and stop here.
+4. Find Chrome for the OS you are on:
+
+   | OS | Where Chrome is |
+   |---|---|
+   | macOS | `/Applications/Google Chrome.app/Contents/MacOS/Google Chrome` |
+   | Windows | `chrome.exe` under `%ProgramFiles%`, `%ProgramFiles(x86)%` or `%LocalAppData%`, in `Google\Chrome\Application\` |
+   | Linux | the first of `google-chrome`, `google-chrome-stable`, `chromium`, `chromium-browser` on `PATH` |
+
+5. Start it in the background, output discarded, with exactly these flags:
+
+   ```
+   --remote-debugging-port=9222
+   --user-data-dir=<home>/.claude/thememate-chrome-profile
+   --no-first-run --no-default-browser-check
+   ```
+
+6. Repeat the endpoint check for up to 10 seconds before using it.
+
+Nothing carries over between launches, so a storefront password or test
+customer login has to be entered again for each store. Ask the user only if you
+have no terminal access, Chrome isn't in any of the places above, or the
+endpoint check still fails after the launch.
+
+**If no browser-automation MCP is connected at all**, say so plainly and ask
+the user to connect the Playwright MCP or `chrome-devtools` MCP before
+continuing -- don't silently skip DOM/console validation or guess at live state
+from the code alone.
 
 **If a connected browser tool is blocked by policy for a target, don't
 retry -- fall back to another connected browser-automation MCP.** If none
 is available, tell the user how to connect one rather than degrading to
 curl-only checks.
-
-If the user would rather you connect one yourself: with their go-ahead,
-launch a second, isolated Chrome instance with remote debugging enabled
-rather than closing or reusing their existing browser session --
-
-```bash
-"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
-  --remote-debugging-port=9222 \
-  --user-data-dir="<scratchpad>/chrome-debug-profile" \
-  --no-first-run --no-default-browser-check &
-curl http://127.0.0.1:9222/json/version   # confirm it's up before handing off
-```
-
-Once the CDP endpoint responds, the Playwright/`chrome-devtools` MCP can
-attach to it normally.
 
 ## Debug output shape
 

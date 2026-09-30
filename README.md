@@ -135,6 +135,14 @@ gh auth login
 either the Playwright MCP or the `chrome-devtools` MCP, whichever your
 Claude Code setup already has connected.
 
+If that MCP expects Chrome on port 9222 and nothing is running there,
+ThemeMate starts a separate Chrome for it (macOS, Windows or Linux) and tells
+you it did. That Chrome uses its own profile in
+`~/.claude/thememate-chrome-profile`, apart from your normal browser, and
+ThemeMate empties it on every launch, including when it moves to a different
+store, so nothing (cookies, logins, Swym's cached data) carries from one store
+or session to the next. ThemeMate only ever closes that Chrome, never yours.
+
 ## Telemetry
 
 **We track ThemeMate skill usage, and every event is tied to your email
