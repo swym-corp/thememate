@@ -133,6 +133,13 @@ Narrate before writing anything:
    never a placeholder or an eyeballed guess when the real value is one grep
    away.
 5. For custom JS/API work: which Swym API this uses (REST or JS API) and why.
+6. The test plan: every scenario you will run after the edit, from the
+   scenario matrix in [test-plan.md](test-plan.md), and the environment it
+   runs on.
+7. What you need from the user: logins, store or app settings, test data,
+   and design decisions you cannot get yourself (see
+   [test-plan.md](test-plan.md)). Check the settings the new code reads on
+   the live storefront first, so a setting that is off shows up here.
 
 If Discovery/Analysis turned up an unrelated live bug sitting in or near the
 anchor you're about to edit -- code already broken on the currently published
@@ -214,11 +221,27 @@ the page is served, so the crawler can never see it.
 `/products/<handle>` for a PDP change, `/` for a layout-wide one) -- the path
 you checked in local preview. The crawler fetches exactly that page.
 
-## 4. Local preview
+## 4. Local preview and verify loop
 
 Run the validation order in [tools-and-testing.md](tools-and-testing.md). Do
 not skip straight to "looks done" -- confirm against the live dev server, not
-against the diff.
+against the diff. Then run the whole test plan and loop until it passes, per
+SKILL.md Section 5.
+
+**If Swym cannot run on the local preview**, do not push on your own. Tell
+the user why, then ask with AskUserQuestion which unpublished theme to push
+to for testing:
+
+- up to 2 recent unpublished themes from `shopify theme list` (never the
+  `live` one), each noting that its files will be overwritten;
+- **Create new**, with the name prefilled as
+  `<live theme name> | Swym-Tm` (the user can type a different one);
+- **Don't push**, which leaves the local-only scenarios run and the rest
+  `BLOCKED`.
+
+The user's pick is the go-ahead for that push. Push per step 5, record the
+theme id there so later pushes reuse it, and run the test plan on its
+preview URL.
 
 ## 5. Push to a duplicate theme
 

@@ -69,6 +69,8 @@ STATE_FIELDS = (
     "merchant_store_url",
     "demo_store_url",
     "estimated_human_minutes",
+    "satisfaction",
+    "feedback_note",
 )
 TOKEN_USAGE_KEYS = ("input_tokens", "output_tokens", "cache_creation_input_tokens")
 MAX_GAP_SECONDS = 600

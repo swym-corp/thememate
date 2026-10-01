@@ -96,10 +96,11 @@ hooks/
   telemetry_state.py  # per-session state recorder, read by telemetry-hook.py at session end
   telemetry_common.py # shared opt-out, anonymous mode, identity and send helpers
 skills/thememate/
-  SKILL.md          # entry point: roles, modes, platform routing, the plan-before-edit gate
+  SKILL.md          # entry point: roles, modes, platform routing, the plan-before-edit gate, the verify loop, feedback
   references/
     roles.md              # agency / merchant / swym_internal detection
     tools-and-testing.md  # tool choice per mode, local-preview validation order
+    test-plan.md          # test plan in every edit plan: scenario matrix, probing, help from the user
     shopify-workflow.md   # prerequisites -> pull -> plan -> edit -> preview -> push -> GitHub
     failure-patterns.md   # 9 common post-theme-update Swym failure patterns
     rest-api.md           # Swym REST API (headless)
@@ -172,6 +173,10 @@ carries:
 - for each theme change ThemeMate pushes or hands over: the store, one page it
   renders on, the files it touched and its change id, plus the pushed theme id
   for pushed changes
+- your rating of each inspect or edit use case (positive, neutral or negative) when you answer
+  ThemeMate's question at the end of it, and, for a negative rating, the
+  comment you write, if you write one. The comment is free text, so it can
+  include whatever you type
 
 **What ThemeMate leaves in your theme.** Files, classes and ids ThemeMate
 creates start with `swymtm-`, and each change carries an opaque id such as

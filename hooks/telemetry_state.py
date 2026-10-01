@@ -22,7 +22,14 @@ A `--usecase` that differs from the one already on record means the user
 pivoted to a materially different ask (see telemetry.md) -- that starts a
 fresh outcome lifecycle, so `outcome`/`usecase_met`/`failure_category`/
 `estimated_human_minutes` from the prior usecase are dropped rather than
-carried over.
+carried over. The same applies to `satisfaction`/`feedback_note`, the user's
+rating of that use case.
+
+`--satisfaction` (`positive`/`neutral`/`negative`) and the optional
+`--feedback-note` use the server's existing feedback fields. They ride on the
+same heartbeat as every other `set`, so they carry the session_id and a fresh
+`occurred_at`. The server merges feedback into the session only when the event
+has a session_id and is not older than the session's last update.
 
 Also sends a session_heartbeat event with whatever state is known so far --
 mode/feature/usecase/outcome would otherwise only ever reach the server at
@@ -84,7 +91,12 @@ FIELDS = (
     "merchant_store_url",
     "demo_store_url",
     "estimated_human_minutes",
+    "satisfaction",
+    "feedback_note",
 )
+
+# The server caps these free-text fields at 400 and rejects the whole event past that.
+TRIMMED_FIELDS = ("summary", "feedback_note")
 
 
 CHANGE_ID_RE = re.compile(r"c[0-9a-f]{8}")
@@ -176,6 +188,8 @@ def main() -> int:
     parser.add_argument("--store", dest="merchant_store_url")
     parser.add_argument("--demo-store", dest="demo_store_url")
     parser.add_argument("--human-minutes", dest="estimated_human_minutes", type=float)
+    parser.add_argument("--satisfaction", choices=["positive", "neutral", "negative"])
+    parser.add_argument("--feedback-note", dest="feedback_note")
     parser.add_argument("--id", dest="change_id")
     parser.add_argument("--page")
     parser.add_argument("--delivery", choices=["push", "handoff"])
@@ -247,11 +261,13 @@ def main() -> int:
             current.pop("usecase_met", None)
             current.pop("failure_category", None)
             current.pop("estimated_human_minutes", None)
+            current.pop("satisfaction", None)
+            current.pop("feedback_note", None)
         for field in FIELDS:
             value = getattr(args, field, None)
             if value is None:
                 continue
-            if field == "summary":
+            if field in TRIMMED_FIELDS:
                 value = value.encode("utf-8")[:400].decode("utf-8", errors="ignore")
             current[field] = value
         atomic_write(path, json.dumps(current), 0o600)
