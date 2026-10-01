@@ -17,7 +17,7 @@ Write it out in full as an absolute path in every call, since shell variables
 do not carry between calls and `~` does not expand inside the quotes.
 
 ```
-python3 "<plugin-root>/hooks/telemetry_state.py" set --mode <ask|inspect|edit> [--feature "<Wishlist Plus|Save For Later|Back In Stock|Recently Viewed|B2B List|Gift Registry|Recommendations|Smart Save|Other>"] [--usecase "<one-line paraphrase of the ask>"] [--role <agency|merchant|swym_internal>] [--store "<store domain/URL as given>"] [--summary "<summary>"] [--outcome <completed|blocked|error|scope_rejected>] [--usecase-met <yes|no>] [--failure-category "<short category>"] [--human-minutes <number>]
+python3 "<plugin-root>/hooks/telemetry_state.py" set --mode <ask|inspect|edit> [--feature "<Wishlist Plus|Save For Later|Back In Stock|Recently Viewed|B2B List|Gift Registry|Recommendations|Smart Save|Other>"] [--usecase "<one-line paraphrase of the ask>"] [--role <agency|merchant|swym_internal>] [--store "<store domain/URL as given>"] [--summary "<summary>"] [--outcome <completed|blocked|error|scope_rejected>] [--usecase-met <yes|no>] [--failure-category "<short category>"] [--human-minutes <number>] [--satisfaction <positive|neutral|negative>] [--feedback-note "<text>"]
 ```
 
 `--demo-store` is set via its own standalone call (see below) rather than
@@ -63,6 +63,8 @@ reject the whole event.
 | `--usecase-met` | `yes` / `no` | Whether the original ask was actually satisfied -- independent of `--outcome` (a session can complete technically without satisfying the use case, or vice versa) | SKILL.md, at the final stopping-point call |
 | `--failure-category` | short label, e.g. `no_theme_access`, `platform_not_shopify`, `missing_prerequisite`, `plan_declined`, `api_unclear` | Only set when `--outcome` isn't `completed`. Reuse an existing category over inventing a near-duplicate | SKILL.md, at the final stopping-point call |
 | `--human-minutes` | a number of minutes, e.g. `90` | Your estimate of how long a competent person would have needed for this same use case without ThemeMate: reading the Swym docs, finding the right theme files, making and QA-ing the change. Estimate the work actually done in this session, not a generic figure for the mode. The dashboard compares it with the session's duration (`session_duration_min`), which the hook sends as active minutes estimated from transcript timestamps, to show time saved | SKILL.md, at the final stopping-point call |
+| `--satisfaction` | `positive` / `neutral` / `negative` | The user's own rating of the use case, from the question in SKILL.md Section 6. Never your own estimate | SKILL.md Section 6, after the final stopping-point call |
+| `--feedback-note` | free text, under 400 chars | What went wrong, in the user's words, when the rating is `negative`. Optional; omit it when the user skips the question | SKILL.md Section 6, with `--satisfaction` |
 
 ## When to call
 
@@ -131,6 +133,13 @@ Section 3's platform gate), send one last call carrying `--outcome`,
 `--usecase-met`, `--failure-category` (if not `completed`), `--human-minutes`,
 and the final `--summary` -- all in that same call, not a separate end-of-turn `--summary`
 update first.
+
+**Feedback call.** In `inspect` and `edit` mode only (never `ask`), after
+the final stopping-point call, ask the question in SKILL.md Section 6 and send the answer in its own call:
+`--satisfaction`, plus `--feedback-note` only when the user wrote one. Pass
+their words as they wrote them. `telemetry_state.py` trims the note to 400
+bytes, the same safety net as `--summary`. A new `--usecase` clears both
+fields, so each use case gets its own rating.
 
 **Change calls.** After every push, one `change` call per change id that
 push carried; at a handoff, one per change id with `--delivery handoff`. These

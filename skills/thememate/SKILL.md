@@ -9,7 +9,7 @@ description: >
   suggestions only -- no theme pull, edit, or push. Use when asked to
   implement, debug, or explain a Swym feature on any storefront.
 metadata:
-  version: 1.0.0
+  version: 1.1.0
 hooks:
   # Three triggers share hooks/telemetry-hook.py, all scoped to sessions that actually use
   # ThemeMate (unlike a plugin-level SessionStart/Stop hook, which would fire for every Claude
@@ -98,7 +98,8 @@ end of every turn as a full recap of the session so far, not just that
 turn -- it replaces rather than appends, so a partial summary erases
 earlier stages. Send a final call with
 `--outcome`/`--usecase-met`/`--failure-category`/`--human-minutes` when the task reaches a
-stopping point (done, blocked, error, or rejected by Section 3's gate). Every
+stopping point (done, blocked, error, or rejected by Section 3's gate), then,
+in `inspect` or `edit` mode, ask for the user's rating (Section 6). Every
 theme change carries a `swymtm` marker and is reported with a `change` call
 after each push or handoff (see "Marking ThemeMate work" in
 [references/shopify-workflow.md](references/shopify-workflow.md)).
@@ -135,7 +136,14 @@ user's ask** -- on Shopify, in either `inspect` (once a fix is requested) or
 1. **Discovery** -- pull the theme, read the relevant files.
 2. **Analysis** -- understand the current state and what the ask actually requires.
 3. **Plan** -- narrate concretely: which files get created or modified, the
-   approach, and (for any custom JS/API work) which Swym API it uses.
+   approach, and (for any custom JS/API work) which Swym API it uses. Every
+   plan also has two more parts, built per
+   [references/test-plan.md](references/test-plan.md):
+   - **Test plan** -- every scenario you will run after the edit, derived from
+     the scenario matrix there, not only the happy path.
+   - **What I need from you** -- every login, store or app setting, test
+     data, or design decision you cannot get yourself. Ask for these in the
+     plan, not halfway through the build.
 4. **Stop and wait.** Presenting the plan is not confirmation. Silence, a
    topic change, or the user simply continuing the conversation is not
    confirmation either -- only an explicit go-ahead is.
@@ -148,7 +156,57 @@ is the entire point of running this as an assistant rather than a script.
 
 ---
 
-## 5. Tools and testing
+## 5. Verify loop (hard rule)
+
+An edit is not done when the code is written or pushed. After every edit,
+and before you call the work done:
+
+1. **Run the whole test plan** on the environment it names -- every
+   scenario, not only the one for the latest change. A pass needs a live
+   probe on the running storefront (see
+   [references/test-plan.md](references/test-plan.md)); a diff that reads
+   correct is not evidence.
+2. **Report a result table**: scenario ID, what it proves, `PASS` / `FAIL` /
+   `BLOCKED`, and the probe output as evidence.
+3. **A major `FAIL`** (the use case breaks, or a feature that worked before
+   now breaks): diagnose it, present the fix as a plan, and stop and wait --
+   Section 4 applies to every fix. **A minor `FAIL`** (polish): list it and
+   let the user choose.
+4. **After a fix, run the whole test plan again** -- a fix can break another
+   scenario. Add a scenario for the defect you found, so it stays covered.
+5. **A `BLOCKED` scenario** that needs a person (a login, a setting only the
+   merchant can change): ask for that exact action, then run it.
+6. **Loop** until every scenario passes or the user explicitly accepts what
+   is still open.
+
+A bug the user finds that the test plan did not catch is a gap in the test
+plan. Add a scenario that reproduces it, prove it fails, then fix it.
+
+---
+
+## 6. Feedback (end of each use case)
+
+At the final stopping point of each use case -- whatever the outcome, after
+the final telemetry call -- ask the user once, with AskUserQuestion:
+"How did ThemeMate do on this task?" with the options **Positive**,
+**Neutral** and **Negative**. If the answer is Negative, ask one follow-up
+question for what went wrong. That answer is optional; the user can skip it.
+
+Record it silently:
+
+```
+python3 "<plugin-root>/hooks/telemetry_state.py" set --satisfaction <positive|neutral|negative> [--feedback-note "<their words>"]
+```
+
+Ask once per use case, never mid-task. Ask only in `inspect` and `edit`
+mode; skip it in `ask` mode, where the user only asked a question. Skip it
+too when telemetry is off (`change-id` prints nothing), since the answer
+would go nowhere. See
+[references/telemetry.md](references/telemetry.md).
+
+---
+
+## 7. Tools and testing
 
 Each mode/platform combination has a specific, narrow tool set -- summarized
 in [references/tools-and-testing.md](references/tools-and-testing.md), which
@@ -158,7 +216,7 @@ when a test fails.
 
 ---
 
-## 6. Safety and anti-hallucination
+## 8. Safety and anti-hallucination
 
 - Never push to a **live/published** Shopify theme. All `edit` work
   lands on an unpublished duplicate theme (`shopify theme push` without

@@ -83,6 +83,10 @@ customer login has to be entered again for each store. Ask the user only if you
 have no terminal access, Chrome isn't in any of the places above, or the
 endpoint check still fails after the launch.
 
+When a test needs a logged-in customer, open the store's login page in this
+Chrome and ask the user to log in there (see "Help from the user" in
+[test-plan.md](test-plan.md)). Never ask for a password or login code in chat.
+
 **If no browser-automation MCP is connected at all**, say so plainly and ask
 the user to connect the Playwright MCP or `chrome-devtools` MCP before
 continuing -- don't silently skip DOM/console validation or guess at live state
@@ -137,10 +141,13 @@ validate against the printed local URL, cheapest check first:
 signal before concluding a feature is absent -- don't check the DOM once
 immediately after navigation.
 
-**Stateful API behavior may be CORS-sensitive on `127.0.0.1` -- unverified.**
-Confirm via a live probe if relevant; otherwise test against the pushed
-theme's real preview URL
-(`https://<store>.myshopify.com/...?preview_theme_id=<id>`).
+**Swym may not run on `127.0.0.1`.** Before you trust a local result, check
+that the Swym API calls the change uses return real data there, not empty
+results or errors. If they do not, ask the user before pushing and let them
+pick the unpublished theme or create a new one (see "Local preview and
+verify loop" in [shopify-workflow.md](shopify-workflow.md)), then test on its
+preview URL (`https://<store-domain>/<path>?preview_theme_id=<id>`) and say so in the
+result table (see "Where to test" in [test-plan.md](test-plan.md)).
 
 **Cross-reference config before assuming App Embed behavior.** Before
 assuming what an App Embed block does or doesn't support, check
@@ -153,12 +160,16 @@ show what's actually *on* right now. Don't infer one from the other.
 
 **Leave the store as you found it.** Any inspect or local-preview action that
 mutates real backend state -- wishlist add/remove, stock-alert subscribe,
-list create, etc. -- against a real store, dev or otherwise, must be reverted
-before the session ends.
+list create, cart lines, items on a test customer's lists, etc. -- against a
+real store, dev or otherwise, must be reverted before the session ends. Keep
+a list of what you created as you go, and report what you removed.
 
 ## Fix loop and rollback
 
-- Cap fix attempts at 3 iterations. If a fix doesn't work on the first
+The verify loop in SKILL.md Section 5 decides when a fix is needed and when
+the work is done. These rules cover the attempts inside one fix.
+
+- Cap attempts within one approved fix at 3 iterations. If a fix doesn't work on the first
   attempt, don't spend the second attempt on another unverified guess --
   re-read the actual live computed styles/state first, then form a new
   hypothesis.
@@ -172,7 +183,9 @@ before the session ends.
 ## User confirmation before publish
 
 Never move to pushing a duplicate/preview theme as "done," or opening a PR,
-without the user explicitly confirming the local preview looks correct. A
+without the user explicitly confirming the test results look correct. A
 plan being confirmed (SKILL.md Section 4) is not the same confirmation as the
 test result being confirmed -- both are required, at different points in the
-sequence.
+sequence. Pushing to an unpublished theme only to run the test plan, when
+Swym cannot run locally, is testing, not "done", and it still needs the
+user's go-ahead first.
