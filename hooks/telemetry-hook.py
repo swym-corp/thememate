@@ -71,6 +71,9 @@ STATE_FIELDS = (
     "estimated_human_minutes",
 )
 TOKEN_USAGE_KEYS = ("input_tokens", "output_tokens", "cache_creation_input_tokens")
+MAX_GAP_SECONDS = 600
+WAITS_ON_PERSON_TOOLS = ("AskUserQuestion", "ExitPlanMode")
+INTERRUPT_PREFIX = "[Request interrupted by user"
 
 
 def seed_session_state(session_id: str, fields: dict) -> None:
@@ -150,9 +153,11 @@ def load_stop_progress(session_id: str) -> dict:
             "turns": int(data.get("turns", 0)),
             "tokens": int(data.get("tokens", 0)),
             "seen_ids": list(data.get("seen_ids", [])),
+            "active_seconds": float(data.get("active_seconds", 0)),
+            "last_ts": data.get("last_ts"),
         }
     except Exception:
-        return {"offset": 0, "turns": 0, "tokens": 0, "seen_ids": []}
+        return {"offset": 0, "turns": 0, "tokens": 0, "seen_ids": [], "active_seconds": 0.0, "last_ts": None}
 
 
 def record_stop_progress(session_id: str, progress: dict) -> None:
@@ -164,10 +169,70 @@ def record_stop_progress(session_id: str, progress: dict) -> None:
         pass
 
 
+def _entry_time(entry: dict) -> datetime | None:
+    try:
+        return datetime.fromisoformat(entry["timestamp"].replace("Z", "+00:00"))
+    except Exception:
+        return None
+
+
+def _is_interrupt(content: list) -> bool:
+    return all(
+        isinstance(block, dict)
+        and block.get("type") == "text"
+        and str(block.get("text", "")).startswith(INTERRUPT_PREFIX)
+        for block in content
+    )
+
+
 def _accumulate_transcript_line(entry: dict, acc: dict, seen_ids: set) -> None:
+    """Adds one transcript line to the running turns/tokens/active time.
+
+    A turn is a prompt the person typed. Claude Code also logs the loaded skill's text as a
+    user line with isMeta set, tool results as user lines, and an Esc interrupt as a user
+    line reading "[Request interrupted by user...]", and none of those is a turn.
+
+    Active time is the sum of the gaps between consecutive user/assistant lines, each capped
+    at MAX_GAP_SECONDS (a permission prompt left open, a sleeping laptop), except two kinds
+    of gap that are time spent waiting on the person, not time ThemeMate spent working: the
+    gap that ends at a new prompt, and the gap that ends at the answer to a tool in
+    WAITS_ON_PERSON_TOOLS. acc["last_ts"] is the previous line's time, carried across
+    Stop-hook calls so a gap spanning two calls is still measured. acc["waiting_ids"] is not
+    carried: Stop only fires at the end of a turn, never between a tool call and its result."""
     entry_type = entry.get("type")
+    if entry_type not in ("user", "assistant"):
+        return
+    waiting_ids = acc.setdefault("waiting_ids", set())
+    is_prompt = False
+    waited_on_person = False
+    if entry_type == "user" and not entry.get("isMeta"):
+        content = entry.get("message", {}).get("content")
+        if isinstance(content, str):
+            is_prompt = True
+        elif isinstance(content, list):
+            if all(isinstance(block, dict) and block.get("type") == "tool_result" for block in content):
+                waited_on_person = any(block.get("tool_use_id") in waiting_ids for block in content)
+            elif not _is_interrupt(content):
+                is_prompt = True
+    when = _entry_time(entry)
+    if when is not None:
+        last = acc.get("last_ts")
+        if last and not is_prompt and not waited_on_person:
+            gap = (when - datetime.fromisoformat(last)).total_seconds()
+            acc["active_seconds"] += min(MAX_GAP_SECONDS, max(0.0, gap))
+        acc["last_ts"] = when.isoformat()
+    if is_prompt:
+        acc["turns"] += 1
     if entry_type == "assistant":
         message = entry.get("message", {})
+        # Before the duplicate check: each content block of one message is its own line.
+        for block in message.get("content") or []:
+            if (
+                isinstance(block, dict)
+                and block.get("type") == "tool_use"
+                and block.get("name") in WAITS_ON_PERSON_TOOLS
+            ):
+                waiting_ids.add(block.get("id"))
         mid = message.get("id")
         if mid is not None:
             if mid in seen_ids:
@@ -175,21 +240,17 @@ def _accumulate_transcript_line(entry: dict, acc: dict, seen_ids: set) -> None:
             seen_ids.add(mid)
         usage = message.get("usage") or {}
         acc["tokens"] += sum(usage.get(key) or 0 for key in TOKEN_USAGE_KEYS)
-    elif entry_type == "user":
-        content = entry.get("message", {}).get("content")
-        if isinstance(content, str):
-            acc["turns"] += 1
-        elif isinstance(content, list) and not all(
-            isinstance(block, dict) and block.get("type") == "tool_result" for block in content
-        ):
-            acc["turns"] += 1
+
+
+def _active_minutes(active_seconds: float) -> float:
+    return round(active_seconds / 60, 1)
 
 
 def transcript_stats(transcript_path: str | None) -> dict:
     """One-shot full parse, used only by session_end (runs once, no offset to reuse)."""
     if not transcript_path:
         return {}
-    acc = {"turns": 0, "tokens": 0}
+    acc = {"turns": 0, "tokens": 0, "active_seconds": 0.0, "last_ts": None}
     seen_ids: set = set()
     try:
         with open(transcript_path, "r") as fh:
@@ -209,10 +270,14 @@ def transcript_stats(transcript_path: str | None) -> dict:
         stats["turns"] = acc["turns"]
     if acc["tokens"]:
         stats["tokens"] = acc["tokens"]
+    if acc["active_seconds"]:
+        stats["session_duration_min"] = _active_minutes(acc["active_seconds"])
     return stats
 
 
-def transcript_progress(transcript_path: str | None, offset: int, seen_ids: set) -> tuple[dict, int] | None:
+def transcript_progress(
+    transcript_path: str | None, offset: int, seen_ids: set, last_ts: str | None = None
+) -> tuple[dict, int] | None:
     """Parse only the transcript bytes after `offset`. None means the read failed --
     distinct from a successful read that found zero new turns -- so callers can leave
     the cached offset untouched instead of corrupting it with a transient glitch."""
@@ -225,7 +290,7 @@ def transcript_progress(transcript_path: str | None, offset: int, seen_ids: set)
     except Exception:
         return None
     if not data:
-        return {"turns": 0, "tokens": 0}, offset
+        return {"turns": 0, "tokens": 0, "active_seconds": 0.0, "last_ts": last_ts}, offset
     if data.endswith(b"\n"):
         new_offset = offset + len(data)
     else:
@@ -233,10 +298,10 @@ def transcript_progress(transcript_path: str | None, offset: int, seen_ids: set)
         # leave the rest for next time so we never parse a half-written entry.
         last_newline = data.rfind(b"\n")
         if last_newline == -1:
-            return {"turns": 0, "tokens": 0}, offset
+            return {"turns": 0, "tokens": 0, "active_seconds": 0.0, "last_ts": last_ts}, offset
         data = data[: last_newline + 1]
         new_offset = offset + last_newline + 1
-    acc = {"turns": 0, "tokens": 0}
+    acc = {"turns": 0, "tokens": 0, "active_seconds": 0.0, "last_ts": last_ts}
     for line in data.decode("utf-8", errors="ignore").splitlines():
         line = line.strip()
         if not line:
@@ -289,7 +354,9 @@ def main() -> int:
                 return 0
             progress = load_stop_progress(payload["session_id"])
             seen_ids = set(progress["seen_ids"])
-            result = transcript_progress(hook.get("transcript_path"), progress["offset"], seen_ids)
+            result = transcript_progress(
+                hook.get("transcript_path"), progress["offset"], seen_ids, progress["last_ts"]
+            )
             if result is None:
                 return 0  # transient read failure -- skip this turn, don't touch the cache
             delta, new_offset = result
@@ -298,6 +365,8 @@ def main() -> int:
                 "turns": progress["turns"] + delta["turns"],
                 "tokens": progress["tokens"] + delta["tokens"],
                 "seen_ids": list(seen_ids),
+                "active_seconds": progress["active_seconds"] + delta["active_seconds"],
+                "last_ts": delta["last_ts"],
             }
             record_stop_progress(payload["session_id"], new_progress)
             if delta["turns"] == 0:
@@ -307,6 +376,8 @@ def main() -> int:
                 payload["turns"] = new_progress["turns"]
             if new_progress["tokens"]:
                 payload["tokens"] = new_progress["tokens"]
+            if new_progress["active_seconds"]:
+                payload["session_duration_min"] = _active_minutes(new_progress["active_seconds"])
         if event_type == "session_end":
             if not session_state_path(payload["session_id"]).exists():
                 return 0
